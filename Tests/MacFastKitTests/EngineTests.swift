@@ -267,6 +267,50 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(report.failed.map(\.tweak.id), ["ventura-only"])
     }
 
+    // MARK: - Mensagens compartilhadas entre app e terminal
+
+    private func tweak(id: String, effect: ApplyEffect) -> Tweak {
+        Tweak(id: id, title: id, summary: "s", tradeoff: "x",
+              category: .interface, risk: .safe, effect: effect,
+              actions: [.defaultsWrite(domain: "com.example.app", key: id, value: .bool(true))])
+    }
+
+    func testNotesAppearOnlyForEffectsThatNeedUserAction() throws {
+        let immediate = engine.apply([tweak(id: "a", effect: .immediate)])
+        XCTAssertTrue(immediate.localizedNotes.isEmpty)
+
+        let logout = engine.apply([tweak(id: "b", effect: .needsLogout)])
+        XCTAssertEqual(logout.localizedNotes.count, 1)
+        XCTAssertTrue(logout.localizedNotes[0].contains("Saia da conta"))
+
+        let both = engine.apply([tweak(id: "c", effect: .needsLogout),
+                                 tweak(id: "d", effect: .needsReboot)])
+        XCTAssertEqual(both.localizedNotes.count, 2)
+    }
+
+    /// Ten tweaks that all need a logout must not produce ten identical notes.
+    func testRepeatedEffectsProduceASingleNote() {
+        let many = (0..<10).map { tweak(id: "t\($0)", effect: .needsLogout) }
+        XCTAssertEqual(engine.apply(many).localizedNotes.count, 1)
+    }
+
+    func testFailureMessageIsNilWhenEverythingWorked() {
+        XCTAssertNil(engine.apply([sample]).localizedFailureMessage)
+    }
+
+    func testFailureMessageNamesEveryFailedTweak() {
+        runner.stub(["/bin/false"], output: "", status: 1)
+        let failing = Tweak(
+            id: "fails", title: "Ajuste que falha", summary: "s", tradeoff: "x",
+            category: .power, risk: .safe,
+            actions: [.command(apply: ["/bin/false"], revert: ["/bin/true"],
+                               probe: nil, appliedOutput: nil)]
+        )
+        let message = engine.apply([sample, failing]).localizedFailureMessage
+        XCTAssertNotNil(message)
+        XCTAssertTrue(message!.contains("Ajuste que falha"))
+    }
+
     // MARK: - Quoting
 
     func testShellQuotingHandlesEmbeddedQuotes() {

@@ -70,14 +70,7 @@ func report(_ result: ApplyReport, verb: String) {
         engine.settle(effects: result.effects)
     }
 
-    var notes: [String] = []
-    if result.effects.contains(.needsLogout) {
-        notes.append("Alguns ajustes só valem após sair e entrar de novo na conta.")
-    }
-    if result.effects.contains(.needsReboot) {
-        notes.append("Alguns ajustes só valem após reiniciar o Mac.")
-    }
-    for note in notes { print("\nnota: \(note)") }
+    for note in result.localizedNotes { print("\nnota: \(note)") }
 
     if result.hasFailures { exit(1) }
 }

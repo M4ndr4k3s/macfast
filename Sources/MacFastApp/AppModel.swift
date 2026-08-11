@@ -63,17 +63,18 @@ final class AppModel: ObservableObject {
     private func apply(_ toApply: [Tweak], reverting toRevert: [Tweak]) {
         run { engine in
             var effects: Set<ApplyEffect> = []
+            var notes: [String] = []
             var failures: [String] = []
 
-            if !toApply.isEmpty {
-                let report = engine.apply(toApply)
+            for report in [
+                toApply.isEmpty ? nil : engine.apply(toApply),
+                toRevert.isEmpty ? nil : engine.revert(toRevert),
+            ].compactMap({ $0 }) {
                 effects.formUnion(report.effects)
-                failures += report.failed.map { "\($0.tweak.title): \($0.reason)" }
-            }
-            if !toRevert.isEmpty {
-                let report = engine.revert(toRevert)
-                effects.formUnion(report.effects)
-                failures += report.failed.map { "\($0.tweak.title): \($0.reason)" }
+                // Applying and reverting in one batch can raise the same note
+                // twice.
+                notes += report.localizedNotes.filter { !notes.contains($0) }
+                if let message = report.localizedFailureMessage { failures.append(message) }
             }
 
             // Restart Dock/Finder once for the whole batch.
@@ -82,14 +83,6 @@ final class AppModel: ObservableObject {
             var fresh: [String: TweakState] = [:]
             for tweak in TweakCatalog.all {
                 fresh[tweak.id] = engine.state(of: tweak)
-            }
-
-            var notes: [String] = []
-            if effects.contains(.needsLogout) {
-                notes.append("Saia e entre novamente na conta para aplicar tudo.")
-            }
-            if effects.contains(.needsReboot) {
-                notes.append("Reinicie o Mac para aplicar tudo.")
             }
 
             return .init(

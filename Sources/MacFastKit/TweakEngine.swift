@@ -17,6 +17,26 @@ public struct ApplyReport {
     public let effects: Set<ApplyEffect>
 
     public var hasFailures: Bool { !failed.isEmpty }
+
+    /// What the user still has to do for the batch to take full effect.
+    /// Lives here, rather than in the UI, so the app and the CLI say the same
+    /// thing and the wording can be tested.
+    public var localizedNotes: [String] {
+        var notes: [String] = []
+        if effects.contains(.needsLogout) {
+            notes.append("Saia da conta e entre novamente para os ajustes valerem por completo.")
+        }
+        if effects.contains(.needsReboot) {
+            notes.append("Reinicie o Mac para os ajustes valerem por completo.")
+        }
+        return notes
+    }
+
+    /// One message per failed tweak, or `nil` when everything worked.
+    public var localizedFailureMessage: String? {
+        guard !failed.isEmpty else { return nil }
+        return failed.map { "\($0.tweak.title): \($0.reason)" }.joined(separator: "\n")
+    }
 }
 
 public final class TweakEngine {
