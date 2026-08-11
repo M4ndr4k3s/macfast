@@ -31,6 +31,19 @@ private func launchAgentDisabled(_ label: String) -> Action {
     )
 }
 
+/// A power-management setting, read back from `pmset -g`.
+///
+/// The probe matches on the whole field name so that, say, `sleep` does not
+/// also match `displaysleep`.
+private func pmset(_ setting: String, optimized: String, original: String) -> Action {
+    .command(
+        apply: ["/usr/bin/sudo", "/usr/bin/pmset", "-a", setting, optimized],
+        revert: ["/usr/bin/sudo", "/usr/bin/pmset", "-a", setting, original],
+        probe: ["/bin/sh", "-c", "pmset -g | awk '$1 == \"\(setting)\" {print $2}'"],
+        appliedOutput: optimized
+    )
+}
+
 /// A preference living in a system-wide domain (a path under `/Library`).
 /// These need root, so they go through a command instead of `.defaultsWrite`,
 /// which the engine always runs as the current user.
@@ -118,7 +131,8 @@ public enum TweakCatalog {
     }
 
     public static let all: [Tweak] =
-        animations + interface + indexing + background + power + network + privacy + notifications
+        animations + interface + indexing + background + power + network + privacy
+            + notifications + battery + trackpad
 
     // MARK: - Animações
 
@@ -354,12 +368,7 @@ public enum TweakCatalog {
             category: .power,
             risk: .advanced,
             recommendedForOCLP: true,
-            actions: [.command(
-                apply: ["/usr/bin/sudo", "/usr/bin/pmset", "-a", "hibernatemode", "0"],
-                revert: ["/usr/bin/sudo", "/usr/bin/pmset", "-a", "hibernatemode", "3"],
-                probe: ["/bin/sh", "-c", "pmset -g | awk '/hibernatemode/ {print $2}'"],
-                appliedOutput: "0"
-            )]
+            actions: [pmset("hibernatemode", optimized: "0", original: "3")]
         ),
         Tweak(
             id: "power-nap",
@@ -369,12 +378,7 @@ public enum TweakCatalog {
             category: .power,
             risk: .moderate,
             recommendedForOCLP: true,
-            actions: [.command(
-                apply: ["/usr/bin/sudo", "/usr/bin/pmset", "-a", "powernap", "0"],
-                revert: ["/usr/bin/sudo", "/usr/bin/pmset", "-a", "powernap", "1"],
-                probe: ["/bin/sh", "-c", "pmset -g | awk '/powernap/ {print $2}'"],
-                appliedOutput: "0"
-            )]
+            actions: [pmset("powernap", optimized: "0", original: "1")]
         ),
         Tweak(
             id: "sudden-motion-sensor",
@@ -383,12 +387,7 @@ public enum TweakCatalog {
             tradeoff: "Só ative se o Mac tiver SSD. Com HD mecânico, isso remove uma proteção real.",
             category: .power,
             risk: .advanced,
-            actions: [.command(
-                apply: ["/usr/bin/sudo", "/usr/bin/pmset", "-a", "sms", "0"],
-                revert: ["/usr/bin/sudo", "/usr/bin/pmset", "-a", "sms", "1"],
-                probe: ["/bin/sh", "-c", "pmset -g | awk '/sms/ {print $2}'"],
-                appliedOutput: "0"
-            )]
+            actions: [pmset("sms", optimized: "0", original: "1")]
         ),
         Tweak(
             id: "time-machine-auto",
@@ -615,6 +614,146 @@ public enum TweakCatalog {
             risk: .advanced,
             effect: .needsReboot,
             actions: [launchAgentDisabled("com.apple.notificationcenterui")]
+        ),
+    ]
+
+    // MARK: - Bateria
+
+    static let battery: [Tweak] = [
+        Tweak(
+            id: "proximity-wake",
+            title: "Não acordar por aproximação",
+            summary: "O Mac deixa de acordar sozinho quando um iPhone ou Apple Watch chega perto.",
+            tradeoff: "Desbloquear com o Apple Watch pode exigir abrir a tampa primeiro.",
+            category: .battery,
+            risk: .safe,
+            recommendedForOCLP: true,
+            actions: [pmset("proximitywake", optimized: "0", original: "1")]
+        ),
+        Tweak(
+            id: "wake-on-network",
+            title: "Não acordar por acesso de rede",
+            summary: "Impede que pacotes na rede tirem o Mac do sono várias vezes por noite.",
+            tradeoff: "Wake on LAN e acesso remoto com o Mac dormindo param de funcionar.",
+            category: .battery,
+            risk: .moderate,
+            recommendedForOCLP: true,
+            actions: [pmset("womp", optimized: "0", original: "1")]
+        ),
+        Tweak(
+            id: "tty-keep-awake",
+            title: "Não ficar acordado por sessão de terminal",
+            summary: "Uma sessão SSH ou terminal aberta deixa de impedir o Mac de dormir.",
+            tradeoff: "Um comando longo rodando no terminal pode ser interrompido pelo sono. "
+                + "Não ative se você usa este Mac como servidor por SSH.",
+            category: .battery,
+            risk: .moderate,
+            actions: [pmset("ttyskeepawake", optimized: "0", original: "1")]
+        ),
+        Tweak(
+            id: "tcp-keepalive",
+            title: "Desligar rede durante o sono",
+            summary: "O Mac para de manter conexões vivas enquanto dorme. É o ajuste de bateria "
+                + "com maior efeito em quem fecha a tampa e só volta horas depois.",
+            tradeoff: "Com a tampa fechada, o Buscar (Find My) não localiza o Mac e mensagens, "
+                + "e-mails e chamadas não chegam até você acordá-lo.",
+            category: .battery,
+            risk: .advanced,
+            recommendedForOCLP: true,
+            actions: [pmset("tcpkeepalive", optimized: "0", original: "1")]
+        ),
+    ]
+
+    // MARK: - Trackpad e teclado
+
+    static let trackpad: [Tweak] = [
+        Tweak(
+            id: "force-click",
+            title: "Desativar Force Touch",
+            summary: "O clique forte deixa de disparar consulta de dicionário e pré-visualizações.",
+            tradeoff: "Perde o clique forte; o clique normal e os gestos continuam iguais.",
+            category: .trackpad,
+            risk: .safe,
+            effect: .needsLogout,
+            recommendedForOCLP: true,
+            actions: [
+                write("com.apple.AppleMultitouchTrackpad", "ForceSuppressed", .bool(true)),
+                write("com.apple.driver.AppleBluetoothMultitouch.trackpad",
+                      "ForceSuppressed", .bool(true)),
+            ]
+        ),
+        Tweak(
+            id: "trackpad-gestures",
+            title: "Desativar gestos de Launchpad e Mesa",
+            summary: "Desliga os gestos de vários dedos para Launchpad, Mostrar Mesa e "
+                + "Exposé de aplicativo.",
+            tradeoff: "Esses gestos param de responder. Mission Control e troca de Spaces "
+                + "continuam funcionando.",
+            category: .trackpad,
+            risk: .safe,
+            effect: .restartsDock,
+            recommendedForOCLP: true,
+            actions: [
+                write("com.apple.dock", "showLaunchpadGestureEnabled", .bool(false)),
+                write("com.apple.dock", "showDesktopGestureEnabled", .bool(false)),
+                write("com.apple.dock", "showAppExposeGestureEnabled", .bool(false)),
+            ]
+        ),
+        Tweak(
+            id: "text-substitutions",
+            title: "Desativar correção e substituição automáticas",
+            summary: "Desliga correção ortográfica, maiúscula automática e troca de aspas e "
+                + "travessões enquanto você digita.",
+            tradeoff: "Você digita sem correção automática — em português, isso normalmente "
+                + "atrapalha menos do que ajuda.",
+            category: .trackpad,
+            risk: .safe,
+            effect: .needsLogout,
+            actions: [
+                write("NSGlobalDomain", "NSAutomaticSpellingCorrectionEnabled", .bool(false)),
+                write("NSGlobalDomain", "NSAutomaticCapitalizationEnabled", .bool(false)),
+                write("NSGlobalDomain", "NSAutomaticQuoteSubstitutionEnabled", .bool(false)),
+                write("NSGlobalDomain", "NSAutomaticDashSubstitutionEnabled", .bool(false)),
+            ]
+        ),
+        Tweak(
+            id: "key-repeat-speed",
+            title: "Acelerar repetição de teclas",
+            summary: "Deixa a tecla segurada repetir bem mais rápido e começar antes.",
+            tradeoff: "Nenhum recurso é perdido, mas segurar uma tecla passa a repetir "
+                + "muito rápido, o que leva algumas horas de costume.",
+            category: .trackpad,
+            risk: .safe,
+            effect: .needsLogout,
+            actions: [
+                write("NSGlobalDomain", "KeyRepeat", .int(2)),
+                write("NSGlobalDomain", "InitialKeyRepeat", .int(15)),
+            ]
+        ),
+        Tweak(
+            id: "dictation",
+            title: "Desativar Ditado",
+            summary: "Desliga o ditado por voz e o daemon que ele mantém em segundo plano.",
+            tradeoff: "O ditado para de funcionar. Em português também some o atalho de "
+                + "duplo toque na tecla de função.",
+            category: .trackpad,
+            risk: .moderate,
+            effect: .needsLogout,
+            recommendedForOCLP: true,
+            actions: [write("com.apple.HIToolbox", "AppleDictationAutoEnable", .int(0))]
+        ),
+        Tweak(
+            id: "press-and-hold",
+            title: "Trocar menu de acentos por repetição de tecla",
+            summary: "Segurar uma tecla passa a repetir o caractere em vez de abrir o menu "
+                + "de acentos.",
+            tradeoff: "Você perde o menu de acentuação ao segurar a tecla — em português "
+                + "isso costuma ser ruim. Acentuação pelo teclado ABNT ou por tecla morta "
+                + "continua normal.",
+            category: .trackpad,
+            risk: .moderate,
+            effect: .needsLogout,
+            actions: [write("NSGlobalDomain", "ApplePressAndHoldEnabled", .bool(false))]
         ),
     ]
 }
