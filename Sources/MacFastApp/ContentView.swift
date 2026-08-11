@@ -58,6 +58,7 @@ struct ContentView: View {
         case .power: return "bolt"
         case .network: return "antenna.radiowaves.left.and.right"
         case .privacy: return "hand.raised"
+        case .notifications: return "bell"
         }
     }
 }

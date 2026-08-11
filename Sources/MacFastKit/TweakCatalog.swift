@@ -15,6 +15,22 @@ private func probeOff(_ test: String) -> [String] {
     ["/bin/sh", "-c", "\(test) && echo off || echo on"]
 }
 
+/// Disables a per-user launch agent. The uid is resolved at run time so the
+/// same command works for whoever is logged in.
+private func launchAgentDisabled(_ label: String) -> Action {
+    .command(
+        apply: ["/bin/sh", "-c", "launchctl disable gui/$(id -u)/\(label)"],
+        revert: ["/bin/sh", "-c", "launchctl enable gui/$(id -u)/\(label)"],
+        // `print-disabled` prints `=> true` on older systems and `=> disabled`
+        // on newer ones.
+        probe: probeOff(
+            "launchctl print-disabled gui/$(id -u) 2>/dev/null"
+                + " | grep -q '\"\(label)\" => \\(true\\|disabled\\)'"
+        ),
+        appliedOutput: "off"
+    )
+}
+
 /// A preference living in a system-wide domain (a path under `/Library`).
 /// These need root, so they go through a command instead of `.defaultsWrite`,
 /// which the engine always runs as the current user.
@@ -102,7 +118,7 @@ public enum TweakCatalog {
     }
 
     public static let all: [Tweak] =
-        animations + interface + indexing + background + power + network + privacy
+        animations + interface + indexing + background + power + network + privacy + notifications
 
     // MARK: - Animações
 
@@ -311,15 +327,7 @@ public enum TweakCatalog {
             risk: .advanced,
             effect: .needsReboot,
             recommendedForOCLP: true,
-            actions: [.command(
-                apply: ["/bin/sh", "-c", "launchctl disable gui/$(id -u)/com.apple.mediaanalysisd"],
-                revert: ["/bin/sh", "-c", "launchctl enable gui/$(id -u)/com.apple.mediaanalysisd"],
-                probe: probeOff(
-                    "launchctl print-disabled gui/$(id -u) 2>/dev/null"
-                        + " | grep -q '\"com.apple.mediaanalysisd\" => \\(true\\|disabled\\)'"
-                ),
-                appliedOutput: "off"
-            )]
+            actions: [launchAgentDisabled("com.apple.mediaanalysisd")]
         ),
         Tweak(
             id: "photo-analysis",
@@ -330,15 +338,7 @@ public enum TweakCatalog {
             risk: .advanced,
             effect: .needsReboot,
             recommendedForOCLP: true,
-            actions: [.command(
-                apply: ["/bin/sh", "-c", "launchctl disable gui/$(id -u)/com.apple.photoanalysisd"],
-                revert: ["/bin/sh", "-c", "launchctl enable gui/$(id -u)/com.apple.photoanalysisd"],
-                probe: probeOff(
-                    "launchctl print-disabled gui/$(id -u) 2>/dev/null"
-                        + " | grep -q '\"com.apple.photoanalysisd\" => \\(true\\|disabled\\)'"
-                ),
-                appliedOutput: "off"
-            )]
+            actions: [launchAgentDisabled("com.apple.photoanalysisd")]
         ),
     ]
 
@@ -555,6 +555,66 @@ public enum TweakCatalog {
                 "AutoSubmit",
                 optimized: "false", original: "true", appliedOutput: "0"
             )]
+        ),
+    ]
+
+    // MARK: - Notificações e alertas
+
+    static let notifications: [Tweak] = [
+        Tweak(
+            id: "notification-banner-time",
+            title: "Encurtar duração dos banners",
+            summary: "Os banners somem em cerca de um segundo, em vez de cinco.",
+            tradeoff: "Você tem menos tempo para ler ou clicar num banner antes de ele sumir. "
+                + "As notificações continuam guardadas na Central.",
+            category: .notifications,
+            risk: .safe,
+            effect: .needsLogout,
+            actions: [write("com.apple.notificationcenterui", "BannerTime", .int(1))]
+        ),
+        Tweak(
+            id: "tips-notifications",
+            title: "Desativar Dicas do macOS",
+            summary: "Para o tipsd, que roda em segundo plano só para sugerir dicas do sistema.",
+            tradeoff: "O app Dicas para de avisar sobre recursos do macOS.",
+            category: .notifications,
+            risk: .safe,
+            effect: .needsReboot,
+            recommendedForOCLP: true,
+            actions: [launchAgentDisabled("com.apple.tipsd")]
+        ),
+        Tweak(
+            id: "automatic-updates",
+            title: "Desativar busca automática por atualizações",
+            summary: "O macOS para de checar e baixar atualizações sozinho em segundo plano. "
+                + "Você continua podendo atualizar à mão quando quiser.",
+            tradeoff: "Você precisa checar atualizações manualmente em Ajustes do Sistema. "
+                + "Num Mac com OCLP isso costuma ser desejável: uma atualização aplicada sem "
+                + "preparo remove os root patches e pode deixar o sistema sem vídeo ou sem Wi-Fi.",
+            category: .notifications,
+            risk: .moderate,
+            recommendedForOCLP: true,
+            actions: [
+                rootWrite(
+                    "/Library/Preferences/com.apple.SoftwareUpdate", "AutomaticCheckEnabled",
+                    optimized: "false", original: "true", appliedOutput: "0"
+                ),
+                rootWrite(
+                    "/Library/Preferences/com.apple.SoftwareUpdate", "AutomaticDownload",
+                    optimized: "false", original: "true", appliedOutput: "0"
+                ),
+            ]
+        ),
+        Tweak(
+            id: "notification-center",
+            title: "Desativar a Central de Notificações",
+            summary: "Encerra o processo da Central. Nenhuma notificação de nenhum app aparece.",
+            tradeoff: "Você deixa de receber qualquer alerta — inclusive de mensagens, "
+                + "calendário e backups falhando. Só ative se quiser mesmo silêncio total.",
+            category: .notifications,
+            risk: .advanced,
+            effect: .needsReboot,
+            actions: [launchAgentDisabled("com.apple.notificationcenterui")]
         ),
     ]
 }

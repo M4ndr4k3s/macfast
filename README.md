@@ -67,7 +67,7 @@ macfast enable --all                       # reativa tudo que foi desativado
 
 `apply` e `revert` continuam funcionando como sinônimos de `disable` e `enable`.
 Categorias válidas: `interface`, `animations`, `indexing`, `background`, `power`,
-`network`, `privacy`.
+`network`, `privacy`, `notifications`.
 
 Antes de aplicar qualquer coisa, vale conferir o que será executado:
 
@@ -88,6 +88,7 @@ O `--dry-run` imprime os comandos exatos e não altera nada.
 | Energia e disco | imagem de hibernação, Power Nap, sensor de movimento, backup automático do Time Machine |
 | Rede | Handoff, AirDrop, Receptor AirPlay, anúncio Bonjour, assistente de Wi-Fi |
 | Privacidade | anúncios personalizados, gravações da Siri, sugestões do Safari, janela de relatório de falha, envio de diagnósticos |
+| Notificações | duração dos banners, Dicas do macOS, busca automática por atualizações, Central de Notificações |
 
 Cada ajuste é independente: nada obriga a usar preset. Na interface é um interruptor
 por linha; no terminal, `macfast disable <id>` e `macfast enable <id>`. O estado
