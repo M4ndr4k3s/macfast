@@ -81,12 +81,12 @@ O `--dry-run` imprime os comandos exatos e não altera nada.
 
 | Categoria | Exemplos |
 | --- | --- |
-| Interface | transparência/desfoque, tingimento pelo papel de parede, Stage Manager, ampliação do Dock |
-| Animações | abrir/redimensionar janelas, Mission Control, Finder, Quick Look, rolagem suave |
+| Interface | transparência/desfoque, tingimento pelo papel de parede, Stage Manager, reabrir janelas ao ligar |
+| Animações | abrir/redimensionar janelas, Mission Control, Finder, Launchpad, Dock, rolagem suave |
 | Indexação | indexação do Spotlight, sugestões da Siri na busca |
-| Segundo plano | Siri, análise de mídia (Texto ao Vivo), análise da Fototeca |
+| Segundo plano | Siri, análise de mídia (Texto ao Vivo), análise da Fototeca, sugestões proativas, Game Center, abrir Fotos ao conectar câmera |
 | Energia e disco | imagem de hibernação, Power Nap, sensor de movimento, backup automático do Time Machine |
-| Rede | Handoff, AirDrop, Receptor AirPlay, anúncio Bonjour, assistente de Wi-Fi |
+| Rede | Handoff, AirDrop, Receptor AirPlay, Bonjour, assistente de Wi-Fi, `.DS_Store` em rede, Controle Universal, sharingd |
 | Privacidade | anúncios personalizados, gravações da Siri, sugestões do Safari, janela de relatório de falha, envio de diagnósticos |
 | Notificações | duração dos banners, Dicas do macOS, busca automática por atualizações, Central de Notificações |
 | Bateria | acordar por aproximação, acordar por rede, sessão de terminal, rede durante o sono |

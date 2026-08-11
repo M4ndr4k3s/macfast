@@ -215,6 +215,32 @@ public enum TweakCatalog {
             ]
         ),
         Tweak(
+            id: "dock-launch-animation",
+            title: "Desativar animação de abrir apps",
+            summary: "O ícone para de pular no Dock enquanto o app carrega.",
+            tradeoff: "Menos indicação visual de que um app está abrindo.",
+            category: .animations,
+            risk: .safe,
+            effect: .restartsDock,
+            recommendedForOCLP: true,
+            actions: [write("com.apple.dock", "launchanim", .bool(false))]
+        ),
+        Tweak(
+            id: "launchpad-animations",
+            title: "Acelerar o Launchpad",
+            summary: "Encurta a abertura, o fechamento e a troca de páginas do Launchpad.",
+            tradeoff: "Nenhum: só as animações ficam mais curtas.",
+            category: .animations,
+            risk: .safe,
+            effect: .restartsDock,
+            recommendedForOCLP: true,
+            actions: [
+                write("com.apple.dock", "springboard-show-duration", .double(0.1)),
+                write("com.apple.dock", "springboard-hide-duration", .double(0.1)),
+                write("com.apple.dock", "springboard-page-duration", .double(0.2)),
+            ]
+        ),
+        Tweak(
             id: "quicklook-animation",
             title: "Desativar animação do Quick Look",
             summary: "A janela de visualização rápida abre sem transição.",
@@ -270,6 +296,18 @@ public enum TweakCatalog {
             risk: .safe,
             effect: .restartsDock,
             actions: [write("com.apple.dock", "magnification", .bool(false))]
+        ),
+        Tweak(
+            id: "reopen-windows",
+            title: "Não reabrir janelas ao ligar",
+            summary: "O macOS para de restaurar todas as janelas e apps do login anterior, "
+                + "que é o que costuma travar a máquina nos primeiros minutos depois de ligar.",
+            tradeoff: "Você reabre à mão o que estava usando antes de desligar.",
+            category: .interface,
+            risk: .safe,
+            effect: .needsLogout,
+            recommendedForOCLP: true,
+            actions: [write("NSGlobalDomain", "NSQuitAlwaysKeepsWindows", .bool(false))]
         ),
         Tweak(
             id: "dock-recents",
@@ -354,6 +392,41 @@ public enum TweakCatalog {
             recommendedForOCLP: true,
             actions: [launchAgentDisabled("com.apple.photoanalysisd")]
         ),
+        Tweak(
+            id: "proactive-suggestions",
+            title: "Desativar sugestões proativas",
+            summary: "Para o suggestd, que lê e-mails, mensagens e calendário em segundo plano "
+                + "para sugerir contatos, eventos e atalhos.",
+            tradeoff: "O macOS deixa de sugerir eventos a partir de e-mails e contatos "
+                + "desconhecidos em ligações.",
+            category: .background,
+            risk: .moderate,
+            effect: .needsReboot,
+            recommendedForOCLP: true,
+            actions: [launchAgentDisabled("com.apple.suggestd")]
+        ),
+        Tweak(
+            id: "game-center",
+            title: "Desativar Game Center",
+            summary: "Para o gamed, que fica ativo mesmo em Macs onde ninguém joga.",
+            tradeoff: "Jogos com placar e conquistas do Game Center param de sincronizar.",
+            category: .background,
+            risk: .safe,
+            effect: .needsReboot,
+            recommendedForOCLP: true,
+            actions: [launchAgentDisabled("com.apple.gamed")]
+        ),
+        Tweak(
+            id: "camera-hotplug",
+            title: "Não abrir Fotos ao conectar câmera",
+            summary: "Conectar iPhone, câmera ou cartão deixa de abrir o Fotos e disparar "
+                + "leitura de todas as imagens.",
+            tradeoff: "Você abre o Fotos ou o Captura de Imagem à mão quando quiser importar.",
+            category: .background,
+            risk: .safe,
+            recommendedForOCLP: true,
+            actions: [write("com.apple.ImageCapture", "disableHotPlug", .bool(true))]
+        ),
     ]
 
     // MARK: - Energia e disco
@@ -388,6 +461,17 @@ public enum TweakCatalog {
             category: .power,
             risk: .advanced,
             actions: [pmset("sms", optimized: "0", original: "1")]
+        ),
+        Tweak(
+            id: "timemachine-new-disks",
+            title: "Não oferecer novos discos para backup",
+            summary: "Conectar um HD externo deixa de abrir a pergunta do Time Machine e de "
+                + "varrer o disco.",
+            tradeoff: "Para configurar um backup novo, você abre o Time Machine à mão.",
+            category: .power,
+            risk: .safe,
+            recommendedForOCLP: true,
+            actions: [write("com.apple.TimeMachine", "DoNotOfferNewDisksForBackup", .bool(true))]
         ),
         Tweak(
             id: "time-machine-auto",
@@ -482,6 +566,51 @@ public enum TweakCatalog {
                 optimized: "false", original: "true", appliedOutput: "0"
             )]
         ),
+        Tweak(
+            id: "network-ds-store",
+            title: "Não criar .DS_Store em pastas de rede",
+            summary: "O Finder para de escrever arquivos de metadados em volumes SMB e AFP. "
+                + "É o que mais deixa o Finder lento em disco de rede.",
+            tradeoff: "Cada pasta de rede esquece o modo de visualização e a posição dos ícones.",
+            category: .network,
+            risk: .safe,
+            effect: .needsLogout,
+            recommendedForOCLP: true,
+            actions: [write("com.apple.desktopservices", "DSDontWriteNetworkStores", .bool(true))]
+        ),
+        Tweak(
+            id: "universal-control",
+            title: "Desativar Controle Universal",
+            summary: "Para a procura contínua por Macs e iPads por perto para compartilhar "
+                + "teclado e mouse.",
+            tradeoff: "Você não consegue mais mover o cursor direto para um iPad ou outro Mac.",
+            category: .network,
+            risk: .safe,
+            effect: .needsLogout,
+            recommendedForOCLP: true,
+            actions: [write("com.apple.universalcontrol", "Disable", .bool(true))]
+        ),
+        Tweak(
+            id: "sharing-daemon",
+            title: "Desativar daemon de compartilhamento",
+            summary: "Para o sharingd de vez. Só faz sentido depois de desativar AirDrop e "
+                + "Handoff, já que é ele quem sustenta os dois.",
+            tradeoff: "AirDrop, Handoff, Área de Transferência Universal e Instant Hotspot "
+                + "param de funcionar por completo.",
+            category: .network,
+            risk: .advanced,
+            effect: .needsReboot,
+            actions: [launchAgentDisabled("com.apple.sharingd")]
+        ),
+        Tweak(
+            id: "icloud-default-save",
+            title: "Não salvar no iCloud por padrão",
+            summary: "Novos documentos passam a ser salvos no disco local em vez do iCloud Drive.",
+            tradeoff: "Você escolhe o iCloud à mão quando quiser sincronizar um documento.",
+            category: .network,
+            risk: .safe,
+            actions: [write("NSGlobalDomain", "NSDocumentSaveNewDocumentsToCloud", .bool(false))]
+        ),
     ]
 
     // MARK: - Privacidade
@@ -530,6 +659,19 @@ public enum TweakCatalog {
                 write("com.apple.Safari", "UniversalSearchEnabled", .bool(false)),
                 write("com.apple.Safari", "SuppressSearchSuggestions", .bool(true)),
             ]
+        ),
+        Tweak(
+            id: "safari-preload-top-hit",
+            title: "Não pré-carregar o primeiro resultado no Safari",
+            summary: "O Safari deixa de baixar em segundo plano a página que ele acha que "
+                + "você vai abrir.",
+            tradeoff: "O primeiro resultado abre um pouco mais devagar; em troca, nenhuma "
+                + "página é baixada sem você pedir.",
+            category: .privacy,
+            risk: .safe,
+            effect: .needsLogout,
+            recommendedForOCLP: true,
+            actions: [write("com.apple.Safari", "PreloadTopHit", .bool(false))]
         ),
         Tweak(
             id: "crash-reporter-dialog",
