@@ -12,10 +12,19 @@ CONFIG=release
 BUILD_DIR="build"
 APP="$BUILD_DIR/MacFast.app"
 
-echo "==> Compilando ($CONFIG)…"
-swift build -c "$CONFIG"
+# Binário universal. O runner de CI (e boa parte dos Macs novos) é arm64, mas
+# quem mais precisa deste app são os Macs Intel antigos rodando OCLP — um
+# binário só arm64 simplesmente não abre neles.
+ARCH_ARGS="--arch arm64 --arch x86_64"
 
-BIN_PATH="$(swift build -c "$CONFIG" --show-bin-path)"
+echo "==> Compilando ($CONFIG, universal)…"
+if ! swift build -c "$CONFIG" $ARCH_ARGS 2>/dev/null; then
+    echo "aviso: build universal indisponível nesta toolchain; usando a arquitetura nativa."
+    ARCH_ARGS=""
+    swift build -c "$CONFIG"
+fi
+
+BIN_PATH="$(swift build -c "$CONFIG" $ARCH_ARGS --show-bin-path)"
 
 echo "==> Montando $APP"
 rm -rf "$APP"
@@ -58,6 +67,8 @@ PLIST
 codesign --force --deep --sign - "$APP" 2>/dev/null || \
     echo "aviso: não foi possível assinar; o app ainda abre pelo menu Abrir do Finder."
 
+echo
+echo "Arquiteturas do app: $(lipo -archs "$APP/Contents/MacOS/MacFast" 2>/dev/null || echo desconhecidas)"
 echo
 echo "Pronto:"
 echo "  app: $APP"

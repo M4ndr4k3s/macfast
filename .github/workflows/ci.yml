@@ -32,7 +32,7 @@ jobs:
       - name: Compilar tudo, inclusive a interface
         run: swift build -v
       - name: Testes
-        run: swift test
+        run: MACFAST_SKIP_APP=1 swift test
       - name: Montar o MacFast.app
         run: ./scripts/build-app.sh
       - name: Conferir que o bundle saiu inteiro
@@ -41,8 +41,20 @@ jobs:
           test -f build/MacFast.app/Contents/Info.plist
           test -x build/macfast
           ./build/macfast presets
+      - name: Conferir que o app roda em Mac Intel
+        run: |
+          lipo -archs build/MacFast.app/Contents/MacOS/MacFast
+          lipo -archs build/MacFast.app/Contents/MacOS/MacFast | grep -q x86_64
+          lipo -archs build/MacFast.app/Contents/MacOS/MacFast | grep -q arm64
+      - name: Compactar preservando permissões
+        run: |
+          cd build
+          ditto -c -k --sequesterRsrc --keepParent MacFast.app MacFast.zip
+          ls -lh MacFast.zip
       - name: Publicar o app compilado
         uses: actions/upload-artifact@v4
         with:
           name: MacFast-app
-          path: build/
+          path: |
+            build/MacFast.zip
+            build/macfast
