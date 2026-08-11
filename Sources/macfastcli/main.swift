@@ -84,17 +84,28 @@ func printUsage() {
     macfast — desativa recursos do macOS para deixá-lo mais rápido
 
     USO
-      macfast list [--oclp]        lista os ajustes disponíveis
-      macfast status               mostra o estado atual de cada ajuste
-      macfast presets              lista os presets
-      macfast apply <id|preset>…   aplica ajustes
-      macfast revert <id>… | --all reverte ajustes ao estado original
-      macfast info                 mostra dados do sistema
+      macfast list [categoria] [--oclp]   lista os ajustes disponíveis
+      macfast status [categoria]          estado atual de cada ajuste
+      macfast presets                     lista os presets
+      macfast disable <id|preset>…        desativa recursos do macOS
+      macfast enable  <id>… | --all       reativa o que foi desativado
+      macfast info                        mostra dados do sistema
+
+    `apply` e `revert` funcionam como sinônimos de `disable` e `enable`.
+
+    CATEGORIAS
+      \(Category.allCases.map(\.rawValue).joined(separator: ", "))
 
     OPÇÕES
       --dry-run   imprime os comandos sem executar nada
       --oclp      restringe a lista aos ajustes recomendados para OCLP
-      --all       com `revert`, desfaz tudo que o MacFast já aplicou
+      --all       com `enable`, reativa tudo que o MacFast desativou
+
+    EXEMPLOS
+      macfast list privacy                 vê só os ajustes de privacidade
+      macfast disable airdrop airplay-receiver
+      macfast enable airdrop               reativa só esse
+      macfast --dry-run disable oclp       simula o preset sem alterar nada
 
     Este app nunca desativa SIP, Gatekeeper, XProtect ou FileVault.
     """)
@@ -108,7 +119,15 @@ case "list", nil:
     if info.isRunningOCLP {
         print("OpenCore Legacy Patcher detectado — ajustes marcados com ★ rendem mais aqui.\n")
     }
+    // Um operando opcional restringe a uma categoria: `macfast list privacy`.
+    let wantedCategory = operands.first.flatMap(Category.init(rawValue:))
+    if let first = operands.first, wantedCategory == nil {
+        fail("categoria desconhecida: \(first)\n"
+            + "válidas: " + Category.allCases.map(\.rawValue).joined(separator: ", "))
+    }
+
     for group in TweakCatalog.grouped() {
+        if let wantedCategory, group.category != wantedCategory { continue }
         let tweaks = oclpOnly ? group.tweaks.filter(\.recommendedForOCLP) : group.tweaks
         guard !tweaks.isEmpty else { continue }
         print("\(group.category.localizedName.uppercased())")
@@ -123,7 +142,8 @@ case "list", nil:
     }
 
 case "status":
-    for tweak in TweakCatalog.all {
+    let statusCategory = operands.first.flatMap(Category.init(rawValue:))
+    for tweak in TweakCatalog.all where statusCategory == nil || tweak.category == statusCategory {
         let state = engine.state(of: tweak)
         print("\(stateLabel(state)) \(tweak.id.padding(toLength: 24, withPad: " ", startingAt: 0)) "
             + "\(tweak.title) — \(state.localizedName)")
@@ -136,13 +156,15 @@ case "presets":
         print("   \(preset.localizedSummary)")
     }
 
-case "apply":
+// `disable` é o mesmo que `apply`: desativar o recurso do macOS é justamente
+// aplicar o ajuste. `enable` é o mesmo que `revert`.
+case "apply", "disable":
     guard !operands.isEmpty else { fail("informe ao menos um id ou preset. Ex.: macfast apply oclp") }
     let tweaks = resolveTweaks(operands)
     if isDryRun { print("simulação — nada será alterado:\n") }
-    report(engine.apply(tweaks), verb: "aplicado")
+    report(engine.apply(tweaks), verb: command == "disable" ? "desativado" : "aplicado")
 
-case "revert":
+case "revert", "enable":
     let tweaks: [Tweak]
     if wantsAll {
         tweaks = engine.trackedTweakIds.compactMap { TweakCatalog.tweak(id: $0) }
@@ -155,7 +177,7 @@ case "revert":
         tweaks = resolveTweaks(operands)
     }
     if isDryRun { print("simulação — nada será alterado:\n") }
-    report(engine.revert(tweaks), verb: "revertido")
+    report(engine.revert(tweaks), verb: command == "enable" ? "reativado" : "revertido")
 
 case "info":
     let info = SystemInfo.current()

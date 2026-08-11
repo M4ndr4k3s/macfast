@@ -15,6 +15,31 @@ private func probeOff(_ test: String) -> [String] {
     ["/bin/sh", "-c", "\(test) && echo off || echo on"]
 }
 
+/// A preference living in a system-wide domain (a path under `/Library`).
+/// These need root, so they go through a command instead of `.defaultsWrite`,
+/// which the engine always runs as the current user.
+///
+/// Unlike `.defaultsWrite`, the revert value is Apple's default rather than
+/// whatever the user had — a root plist is not backed up per user.
+private func rootWrite(
+    _ domain: String,
+    _ key: String,
+    optimized: String,
+    original: String,
+    type: String = "-bool",
+    appliedOutput: String
+) -> Action {
+    .command(
+        apply: ["/usr/bin/sudo", "/usr/bin/defaults", "write", domain, key, type, optimized],
+        revert: ["/usr/bin/sudo", "/usr/bin/defaults", "write", domain, key, type, original],
+        // The path may contain spaces, so it is quoted for the shell.
+        probe: ["/bin/sh", "-c",
+                "defaults read \(Shell.shellQuote(domain)) \(Shell.shellQuote(key)) 2>/dev/null"
+                    + " || echo ausente"],
+        appliedOutput: appliedOutput
+    )
+}
+
 public enum Preset: String, CaseIterable, Sendable {
     /// Only cosmetic, instantly reversible changes. Nothing stops working.
     case conservative
@@ -76,7 +101,8 @@ public enum TweakCatalog {
         }
     }
 
-    public static let all: [Tweak] = animations + interface + indexing + background + power + network
+    public static let all: [Tweak] =
+        animations + interface + indexing + background + power + network + privacy
 
     // MARK: - Animações
 
@@ -400,6 +426,135 @@ public enum TweakCatalog {
                 write("com.apple.coreservices.useractivityd", "ActivityReceivingAllowed",
                       .bool(false), currentHost: true),
             ]
+        ),
+        Tweak(
+            id: "airdrop",
+            title: "Desativar AirDrop",
+            summary: "Para a busca contínua por dispositivos próximos via Bluetooth e Wi-Fi.",
+            tradeoff: "O AirDrop some do Finder e o Mac deixa de aparecer para outros aparelhos.",
+            category: .network,
+            risk: .moderate,
+            effect: .restartsFinder,
+            recommendedForOCLP: true,
+            actions: [write("com.apple.NetworkBrowser", "DisableAirDrop", .bool(true))]
+        ),
+        Tweak(
+            id: "airplay-receiver",
+            title: "Desativar Receptor AirPlay",
+            summary: "Impede que o Mac fique escutando para receber transmissões de outros "
+                + "aparelhos. Também libera a porta 5000, que costuma conflitar com "
+                + "servidores locais de desenvolvimento.",
+            tradeoff: "Você não consegue mais espelhar a tela do iPhone ou iPad neste Mac.",
+            category: .network,
+            risk: .safe,
+            effect: .needsLogout,
+            recommendedForOCLP: true,
+            // Apple's own key carries the typo "Reciever"; it must be written
+            // exactly like this to take effect.
+            actions: [write("com.apple.controlcenter", "AirplayRecieverEnabled", .bool(false))]
+        ),
+        Tweak(
+            id: "bonjour-advertising",
+            title: "Parar de se anunciar na rede (Bonjour)",
+            summary: "O Mac deixa de transmitir seus serviços por multicast, reduzindo tráfego "
+                + "constante em redes cheias.",
+            tradeoff: "Outros aparelhos não encontram este Mac pelo nome. Compartilhamento de "
+                + "tela e de arquivos ainda funcionam se você digitar o IP.",
+            category: .network,
+            risk: .advanced,
+            effect: .needsReboot,
+            actions: [rootWrite(
+                "/Library/Preferences/com.apple.mDNSResponder.plist",
+                "NoMulticastAdvertisements",
+                optimized: "true", original: "false", appliedOutput: "1"
+            )]
+        ),
+        Tweak(
+            id: "captive-portal",
+            title: "Desativar assistente de rede Wi-Fi",
+            summary: "Impede que o macOS abra sozinho uma janela e faça requisições de teste "
+                + "ao entrar em qualquer Wi-Fi.",
+            tradeoff: "Em Wi-Fi público com tela de login, você precisa abrir o navegador à mão.",
+            category: .network,
+            risk: .moderate,
+            actions: [rootWrite(
+                "/Library/Preferences/SystemConfiguration/com.apple.captive.control",
+                "Active",
+                optimized: "false", original: "true", appliedOutput: "0"
+            )]
+        ),
+    ]
+
+    // MARK: - Privacidade
+
+    static let privacy: [Tweak] = [
+        Tweak(
+            id: "personalized-ads",
+            title: "Desativar anúncios personalizados",
+            summary: "Desliga o identificador de anúncios e a segmentação da Apple.",
+            tradeoff: "Nenhum uso é perdido: os anúncios da App Store continuam, só deixam "
+                + "de ser baseados no seu perfil.",
+            category: .privacy,
+            risk: .safe,
+            effect: .needsLogout,
+            recommendedForOCLP: true,
+            actions: [
+                write("com.apple.AdLib", "allowApplePersonalizedAdvertising", .bool(false)),
+                write("com.apple.AdLib", "allowIdentifierForAdvertising", .bool(false)),
+                write("com.apple.AdLib", "forceLimitAdTracking", .bool(true)),
+            ]
+        ),
+        Tweak(
+            id: "siri-data-sharing",
+            title: "Não compartilhar gravações da Siri",
+            summary: "Recusa o envio de áudio e transcrições da Siri e do Ditado para a Apple.",
+            tradeoff: "Nenhum: a Siri continua funcionando igual.",
+            category: .privacy,
+            risk: .safe,
+            effect: .needsLogout,
+            actions: [
+                // 2 is the "opted out" state used by macOS.
+                write("com.apple.assistant.support", "Siri Data Sharing Opt-In Status", .int(2)),
+            ]
+        ),
+        Tweak(
+            id: "safari-search-suggestions",
+            title: "Desativar sugestões de busca do Safari",
+            summary: "O Safari para de enviar o que você digita na barra de endereços antes "
+                + "de você apertar Enter.",
+            tradeoff: "Some o preenchimento de busca enquanto digita. Este ajuste costuma "
+                + "exigir Acesso Total ao Disco para o MacFast, por causa do contêiner do Safari.",
+            category: .privacy,
+            risk: .safe,
+            effect: .needsLogout,
+            actions: [
+                write("com.apple.Safari", "UniversalSearchEnabled", .bool(false)),
+                write("com.apple.Safari", "SuppressSearchSuggestions", .bool(true)),
+            ]
+        ),
+        Tweak(
+            id: "crash-reporter-dialog",
+            title: "Não perguntar sobre relatórios de falha",
+            summary: "A janela “o aplicativo encerrou inesperadamente” para de aparecer.",
+            tradeoff: "Você deixa de ser avisado quando um app trava. Os relatórios continuam "
+                + "gravados em disco para consulta no Console.",
+            category: .privacy,
+            risk: .safe,
+            actions: [write("com.apple.CrashReporter", "DialogType", .string("none"))]
+        ),
+        Tweak(
+            id: "diagnostic-submission",
+            title: "Não enviar diagnósticos para a Apple",
+            summary: "Desliga o envio automático de dados de falha e uso do sistema inteiro.",
+            tradeoff: "Nenhum para você: só a Apple deixa de receber os relatórios.",
+            category: .privacy,
+            risk: .safe,
+            recommendedForOCLP: true,
+            actions: [rootWrite(
+                "/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist",
+                "AutoSubmit",
+                optimized: "false", original: "true", appliedOutput: "0"
+            )]
         ),
     ]
 }

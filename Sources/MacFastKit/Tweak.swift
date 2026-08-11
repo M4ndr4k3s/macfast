@@ -90,6 +90,7 @@ public enum Category: String, Codable, Sendable, CaseIterable {
     case background
     case power
     case network
+    case privacy
 
     public var localizedName: String {
         switch self {
@@ -99,6 +100,7 @@ public enum Category: String, Codable, Sendable, CaseIterable {
         case .background: return "Serviços em segundo plano"
         case .power: return "Energia e disco"
         case .network: return "Rede e sincronização"
+        case .privacy: return "Privacidade"
         }
     }
 }

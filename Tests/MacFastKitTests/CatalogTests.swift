@@ -84,6 +84,27 @@ final class CatalogTests: XCTestCase {
         XCTAssertNil(TweakCatalog.tweak(id: "não-existe"))
     }
 
+    /// A category with no tweaks shows up as an empty section in the sidebar.
+    func testEveryCategoryHasAtLeastOneTweak() {
+        for category in Category.allCases {
+            XCTAssertTrue(TweakCatalog.all.contains { $0.category == category },
+                          "categoria \(category.rawValue) está vazia")
+        }
+    }
+
+    /// Root plists cannot be written by the engine's user-level `defaults`
+    /// call, so they must go through a sudo command instead.
+    func testSystemWideDomainsAreWrittenAsRoot() {
+        for tweak in TweakCatalog.all {
+            for action in tweak.actions {
+                if case .defaultsWrite(let domain, _, _, _) = action {
+                    XCTAssertFalse(domain.hasPrefix("/"),
+                                   "\(tweak.id) escreve num domínio do sistema sem root")
+                }
+            }
+        }
+    }
+
     func testGroupingCoversEveryTweak() {
         let grouped = TweakCatalog.grouped().flatMap(\.tweaks)
         XCTAssertEqual(grouped.count, TweakCatalog.all.count)
