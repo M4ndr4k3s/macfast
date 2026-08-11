@@ -1,2 +1,115 @@
 # macfast
-Aplicativo de performance para Mac OS
+
+Aplicativo de performance para macOS. Desativa recursos que consomem CPU, GPU e disco
+sem entregar muito em troca — com atenção especial a Macs rodando via
+**OpenCore Legacy Patcher (OCLP)**, onde transparência, animações e análise de mídia em
+segundo plano pesam bem mais do que num Mac suportado.
+
+Todo ajuste é **reversível**: antes da primeira alteração o MacFast grava o valor original
+de cada chave e o restaura no `revert` — inclusive se você já tinha personalizado o sistema.
+
+## O que ele não faz
+
+O MacFast **nunca** desativa SIP, Gatekeeper, XProtect, FileVault ou assinatura de código.
+Isso não deixa o Mac mais rápido, e em máquinas com OCLP mexer no SIP por fora atrapalha o
+root patching do próprio OCLP. Ele também não toca em nada que o OCLP gerencia
+(kexts, patches de root, `/System/Library`).
+
+## Requisitos
+
+- macOS 11 Big Sur ou mais recente
+- Xcode Command Line Tools (para compilar)
+
+## Instalação
+
+```sh
+git clone https://github.com/m4ndr4k3s/macfast.git
+cd macfast
+./scripts/build-app.sh
+```
+
+Isso gera `build/MacFast.app` (interface gráfica) e `build/macfast` (linha de comando).
+
+## Uso — interface
+
+Abra o `MacFast.app`. A tela inicial traz três presets:
+
+| Preset | O que aplica |
+| --- | --- |
+| **Conservador** | Só ajustes visuais. Nenhum recurso deixa de funcionar. |
+| **Recomendado** | Ganho perceptível, trocando recursos que a maioria não usa. |
+| **OCLP** | Foco no que mais pesa em Macs sem suporte gráfico nativo. |
+
+Cada ajuste mostra o que faz e **do que você abre mão**, além de um selo de risco
+(Seguro / Moderado / Avançado). Quando o OCLP é detectado, o app avisa na tela inicial.
+
+Ajustes que precisam de root abrem o diálogo padrão de senha do macOS.
+
+## Uso — linha de comando
+
+```sh
+macfast list                # lista os ajustes, agrupados por categoria
+macfast list --oclp         # só os que rendem mais em Macs com OCLP
+macfast status              # estado atual de cada ajuste
+macfast presets             # presets disponíveis
+macfast apply oclp          # aplica um preset inteiro
+macfast apply reduce-transparency finder-animations
+macfast revert --all        # desfaz tudo que o MacFast aplicou
+macfast info                # macOS, modelo e detecção de OCLP
+```
+
+Antes de aplicar qualquer coisa, vale conferir o que será executado:
+
+```sh
+macfast --dry-run apply oclp
+```
+
+O `--dry-run` imprime os comandos exatos e não altera nada.
+
+## O que pode ser desativado
+
+| Categoria | Exemplos |
+| --- | --- |
+| Interface | transparência/desfoque, tingimento pelo papel de parede, Stage Manager, ampliação do Dock |
+| Animações | abrir/redimensionar janelas, Mission Control, Finder, Quick Look, rolagem suave |
+| Indexação | indexação do Spotlight, sugestões da Siri na busca |
+| Segundo plano | Siri, análise de mídia (Texto ao Vivo), análise da Fototeca |
+| Energia e disco | imagem de hibernação, Power Nap, sensor de movimento, backup automático do Time Machine |
+| Rede | Handoff |
+
+Em Macs com OCLP, os dois que mais mudam a sensação de velocidade são
+**reduzir transparência** e **reduzir movimento**.
+
+## Como reverter
+
+Pela interface: **Reverter tudo ao estado original**.
+Pelo terminal: `macfast revert --all`, ou `macfast revert <id>` para um ajuste específico.
+
+Os valores originais ficam em `~/Library/Application Support/MacFast/backups.json`.
+Apagar esse arquivo faz o MacFast perder a memória do que existia antes — o `revert`
+passa a remover a chave e deixar o macOS voltar ao padrão de fábrica.
+
+## Desenvolvimento
+
+```sh
+swift build
+swift test
+```
+
+O motor (`MacFastKit`) não depende de interface, então os testes rodam sem tocar no sistema:
+usam um executor falso que apenas registra os comandos. Os testes também protegem o catálogo —
+todo ajuste precisa declarar do que se abre mão, ter reversão e saber ler o próprio estado,
+e nenhum comando pode mexer na segurança do sistema.
+
+Estrutura:
+
+- `Sources/MacFastKit` — catálogo, motor de aplicação/reversão, backup, detecção de OCLP
+- `Sources/MacFastApp` — interface SwiftUI
+- `Sources/macfastcli` — comando `macfast`
+
+Para adicionar um ajuste, basta descrevê-lo em `Sources/MacFastKit/TweakCatalog.swift`;
+a interface e o CLI o exibem automaticamente.
+
+## Licença
+
+MIT — veja [LICENSE](LICENSE).
