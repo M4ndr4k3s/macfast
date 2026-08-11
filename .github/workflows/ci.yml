@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # O núcleo (motor, catálogo, CLI) só depende de Foundation, então roda aqui
+  # em segundos e pega a maioria dos erros.
+  core-linux:
+    name: Núcleo (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar
+        run: swift build
+      - name: Testes
+        run: swift test
+
+  # Só um macOS de verdade tem SwiftUI e AppKit, então é aqui que a interface
+  # é compilada.
+  app-macos:
+    name: App completo (macOS)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Versão do Swift
+        run: swift --version
+      - name: Compilar tudo, inclusive a interface
+        run: swift build -v
+      - name: Testes
+        run: swift test
+      - name: Montar o MacFast.app
+        run: ./scripts/build-app.sh
+      - name: Conferir que o bundle saiu inteiro
+        run: |
+          test -x build/MacFast.app/Contents/MacOS/MacFast
+          test -f build/MacFast.app/Contents/Info.plist
+          test -x build/macfast
+          ./build/macfast presets
+      - name: Publicar o app compilado
+        uses: actions/upload-artifact@v4
+        with:
+          name: MacFast-app
+          path: build/
