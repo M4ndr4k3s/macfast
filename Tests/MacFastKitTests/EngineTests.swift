@@ -225,6 +225,48 @@ final class EngineTests: XCTestCase {
         XCTAssertEqual(reloaded.trackedTweakIds, ["test-tweak"])
     }
 
+    // MARK: - Disponibilidade por versão
+
+    private var venturaOnly: Tweak {
+        Tweak(
+            id: "ventura-only", title: "t", summary: "s", tradeoff: "x",
+            category: .interface, risk: .safe, availability: .from(13),
+            actions: [.defaultsWrite(domain: "com.example.app", key: "Flag", value: .bool(true))]
+        )
+    }
+
+    func testUnavailableTweakReportsItselfInsteadOfLookingOff() {
+        let onBigSur = TweakEngine(runner: runner,
+                                   backups: BackupStore(fileURL: backupURL), osMajor: 11)
+        XCTAssertEqual(onBigSur.state(of: venturaOnly), .unavailable)
+    }
+
+    /// The system is never touched for a tweak it cannot support — a
+    /// `defaults write` would succeed and then claim to be applied.
+    func testApplyingAnUnavailableTweakThrowsAndWritesNothing() {
+        let onBigSur = TweakEngine(runner: runner,
+                                   backups: BackupStore(fileURL: backupURL), osMajor: 11)
+        XCTAssertThrowsError(try onBigSur.apply(venturaOnly))
+        XCTAssertTrue(runner.commands.isEmpty)
+    }
+
+    func testAvailableTweakAppliesNormally() throws {
+        let onVentura = TweakEngine(runner: runner,
+                                    backups: BackupStore(fileURL: backupURL), osMajor: 13)
+        try onVentura.apply(venturaOnly)
+        XCTAssertTrue(runner.commands.contains(
+            ["/usr/bin/defaults", "write", "com.example.app", "Flag", "-bool", "true"]
+        ))
+    }
+
+    func testBatchApplyKeepsGoingPastAnUnavailableTweak() {
+        let onBigSur = TweakEngine(runner: runner,
+                                   backups: BackupStore(fileURL: backupURL), osMajor: 11)
+        let report = onBigSur.apply([venturaOnly, sample])
+        XCTAssertEqual(report.applied.map(\.id), ["test-tweak"])
+        XCTAssertEqual(report.failed.map(\.tweak.id), ["ventura-only"])
+    }
+
     // MARK: - Quoting
 
     func testShellQuotingHandlesEmbeddedQuotes() {

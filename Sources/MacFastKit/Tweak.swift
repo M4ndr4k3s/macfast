@@ -66,6 +66,83 @@ public enum Action: Equatable, Codable, Sendable {
     }
 }
 
+/// The range of macOS releases a tweak actually does something on, expressed
+/// as major versions (11 = Big Sur … 26 = Tahoe).
+///
+/// This matters because a `defaults write` for a key the running system does
+/// not know succeeds silently. Without a range, such a tweak would report
+/// itself as applied while changing nothing.
+public struct OSRange: Equatable, Codable, Sendable {
+    /// Oldest release where the tweak works. `nil` means "as far back as the
+    /// app supports".
+    public let minimumMajor: Int?
+    /// Newest release where it still works, inclusive. `nil` means "still
+    /// current".
+    public let maximumMajor: Int?
+
+    public init(minimumMajor: Int? = nil, maximumMajor: Int? = nil) {
+        self.minimumMajor = minimumMajor
+        self.maximumMajor = maximumMajor
+    }
+
+    public static let any = OSRange()
+
+    public static func from(_ major: Int) -> OSRange { OSRange(minimumMajor: major) }
+    public static func upTo(_ major: Int) -> OSRange { OSRange(maximumMajor: major) }
+
+    public func contains(major: Int) -> Bool {
+        if let minimumMajor, major < minimumMajor { return false }
+        if let maximumMajor, major > maximumMajor { return false }
+        return true
+    }
+
+    public var isUniversal: Bool { minimumMajor == nil && maximumMajor == nil }
+
+    /// Marketing names, so the UI can say "Ventura" instead of "13".
+    public static func releaseName(for major: Int) -> String? {
+        switch major {
+        case 11: return "Big Sur"
+        case 12: return "Monterey"
+        case 13: return "Ventura"
+        case 14: return "Sonoma"
+        case 15: return "Sequoia"
+        case 26: return "Tahoe"
+        default: return nil
+        }
+    }
+
+    private static func label(_ major: Int) -> String {
+        if let name = releaseName(for: major) { return "macOS \(major) \(name)" }
+        return "macOS \(major)"
+    }
+
+    public var localizedName: String {
+        switch (minimumMajor, maximumMajor) {
+        case (nil, nil):
+            return "Qualquer versão"
+        case (let minimum?, nil):
+            return "\(OSRange.label(minimum)) ou mais recente"
+        case (nil, let maximum?):
+            return "Até o \(OSRange.label(maximum))"
+        case (let minimum?, let maximum?) where minimum == maximum:
+            return "Só no \(OSRange.label(minimum))"
+        case (let minimum?, let maximum?):
+            return "Do \(OSRange.label(minimum)) ao \(OSRange.label(maximum))"
+        }
+    }
+
+    /// Short form for badges and list columns.
+    public var shortName: String {
+        switch (minimumMajor, maximumMajor) {
+        case (nil, nil): return ""
+        case (let minimum?, nil): return "macOS \(minimum)+"
+        case (nil, let maximum?): return "≤ macOS \(maximum)"
+        case (let minimum?, let maximum?) where minimum == maximum: return "macOS \(minimum)"
+        case (let minimum?, let maximum?): return "macOS \(minimum)–\(maximum)"
+        }
+    }
+}
+
 public enum Risk: String, Codable, Sendable, CaseIterable {
     /// Cosmetic or trivially reversible; nothing stops working.
     case safe
@@ -143,9 +220,15 @@ public struct Tweak: Identifiable, Equatable, Codable, Sendable {
     /// Tweaks that pay off the most on Macs running via OpenCore Legacy Patcher
     /// (no native Metal driver support, spinning disks, low RAM).
     public let recommendedForOCLP: Bool
+    /// Releases where this tweak actually has an effect.
+    public let availability: OSRange
     public let actions: [Action]
 
     public var requiresRoot: Bool { actions.contains { $0.requiresRoot } }
+
+    public func isAvailable(onMajor major: Int) -> Bool {
+        availability.contains(major: major)
+    }
 
     public init(
         id: String,
@@ -156,8 +239,10 @@ public struct Tweak: Identifiable, Equatable, Codable, Sendable {
         risk: Risk,
         effect: ApplyEffect = .immediate,
         recommendedForOCLP: Bool = false,
+        availability: OSRange = .any,
         actions: [Action]
     ) {
+        self.availability = availability
         self.id = id
         self.title = title
         self.summary = summary
@@ -179,6 +264,8 @@ public enum TweakState: String, Codable, Sendable {
     case partial
     /// The state could not be read (probe failed, no permission).
     case unknown
+    /// This macOS release does not have the feature the tweak turns off.
+    case unavailable
 
     public var localizedName: String {
         switch self {
@@ -186,6 +273,7 @@ public enum TweakState: String, Codable, Sendable {
         case .notApplied: return "Desativado"
         case .partial: return "Parcial"
         case .unknown: return "Desconhecido"
+        case .unavailable: return "Indisponível nesta versão"
         }
     }
 }

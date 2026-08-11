@@ -103,7 +103,7 @@ struct OverviewView: View {
                                 Text(preset.localizedSummary)
                                     .font(.callout)
                                     .foregroundColor(.secondary)
-                                Text("\(preset.tweaks().count) ajustes")
+                                Text("\(model.tweaks(for: preset).count) ajustes")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -175,6 +175,10 @@ struct TweakRow: View {
                         if tweak.effect != .immediate {
                             Badge(text: tweak.effect.localizedName, color: .secondary)
                         }
+                        if !tweak.availability.isUniversal {
+                            Badge(text: tweak.availability.shortName,
+                                  color: state == .unavailable ? .secondary : .blue)
+                        }
                     }
                     Text(tweak.summary)
                         .font(.callout)
@@ -193,6 +197,14 @@ struct TweakRow: View {
                             .font(.caption)
                             .foregroundColor(.orange)
                     }
+                    // Shown rather than hidden: knowing the tweak exists but
+                    // does not apply here beats it silently missing.
+                    if state == .unavailable {
+                        Text("Este recurso não existe na sua versão do macOS. "
+                            + "Requer \(tweak.availability.localizedName).")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 Spacer(minLength: 12)
                 Toggle("", isOn: Binding(
@@ -200,7 +212,7 @@ struct TweakRow: View {
                     set: { _ in model.toggle(tweak) }
                 ))
                 .labelsHidden()
-                .disabled(model.isBusy)
+                .disabled(model.isBusy || state == .unavailable)
             }
             .padding(8)
         }

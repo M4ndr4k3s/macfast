@@ -21,6 +21,7 @@ public enum MacFastError: LocalizedError {
     case emptyCommand
     case commandFailed(command: [String], result: CommandResult)
     case authorizationCancelled
+    case unavailableOnThisOS(title: String, requirement: String)
 
     public var errorDescription: String? {
         switch self {
@@ -32,6 +33,8 @@ public enum MacFastError: LocalizedError {
                 + (detail.isEmpty ? "" : " \(detail)")
         case .authorizationCancelled:
             return "Autorização de administrador cancelada."
+        case .unavailableOnThisOS(let title, let requirement):
+            return "“\(title)” não existe nesta versão do macOS (requer \(requirement))."
         }
     }
 }

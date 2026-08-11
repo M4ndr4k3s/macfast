@@ -15,9 +15,15 @@ final class AppModel: ObservableObject {
     private let work = DispatchQueue(label: "app.macfast.engine", qos: .userInitiated)
 
     let groups = TweakCatalog.grouped()
+    let osMajor = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
 
     func state(of tweak: Tweak) -> TweakState {
         states[tweak.id] ?? .unknown
+    }
+
+    /// Presets never offer tweaks this release cannot do anything with.
+    func tweaks(for preset: Preset) -> [Tweak] {
+        preset.tweaks(availableOn: osMajor)
     }
 
     func load() {
@@ -42,7 +48,7 @@ final class AppModel: ObservableObject {
     }
 
     func apply(preset: Preset) {
-        apply(preset.tweaks(), reverting: [])
+        apply(tweaks(for: preset), reverting: [])
     }
 
     func revertEverything() {

@@ -92,6 +92,21 @@ O `--dry-run` imprime os comandos exatos e não altera nada.
 | Bateria | acordar por aproximação, acordar por rede, sessão de terminal, rede durante o sono |
 | Trackpad e teclado | Force Touch, gestos de Launchpad e Mesa, correção automática, repetição de teclas, Ditado |
 
+### Compatibilidade por versão
+
+Cada ajuste declara em quais versões do macOS ele realmente faz efeito. Isso importa
+porque um `defaults write` de uma chave que o sistema não conhece **não dá erro** — ele
+grava e não acontece nada. Sem essa marcação, o ajuste se diria aplicado sem ter feito
+nada.
+
+Ajustes fora da faixa aparecem como **Indisponível nesta versão**, com o interruptor
+desligado e a exigência escrita ao lado (por exemplo, `macOS 13+` para o Stage Manager).
+No terminal eles aparecem com `[-]` no `status` e com o selo de versão no `list`. Os
+presets já ignoram automaticamente o que sua versão não suporta.
+
+Eles ficam visíveis de propósito: saber que o ajuste existe mas não vale para o seu
+sistema é melhor do que ele simplesmente sumir da lista.
+
 Cada ajuste é independente: nada obriga a usar preset. Na interface é um interruptor
 por linha; no terminal, `macfast disable <id>` e `macfast enable <id>`. O estado
 mostrado vem sempre do sistema, não de um registro interno do app — se você mudar

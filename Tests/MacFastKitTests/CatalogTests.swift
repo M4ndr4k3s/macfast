@@ -105,6 +105,56 @@ final class CatalogTests: XCTestCase {
         }
     }
 
+    // MARK: - Disponibilidade por versão
+
+    func testVersionRangeBoundsAreInclusive() {
+        let ventura = OSRange.from(13)
+        XCTAssertFalse(ventura.contains(major: 12))
+        XCTAssertTrue(ventura.contains(major: 13))
+        XCTAssertTrue(ventura.contains(major: 26))
+
+        let upToSequoia = OSRange.upTo(15)
+        XCTAssertTrue(upToSequoia.contains(major: 15))
+        XCTAssertFalse(upToSequoia.contains(major: 26))
+
+        XCTAssertTrue(OSRange.any.contains(major: 11))
+        XCTAssertTrue(OSRange.any.isUniversal)
+    }
+
+    func testVersionRangeIsDescribedInPlainLanguage() {
+        XCTAssertEqual(OSRange.from(13).shortName, "macOS 13+")
+        XCTAssertEqual(OSRange.upTo(15).shortName, "≤ macOS 15")
+        XCTAssertEqual(OSRange(minimumMajor: 12, maximumMajor: 14).shortName, "macOS 12–14")
+        XCTAssertEqual(OSRange.any.shortName, "")
+        XCTAssertTrue(OSRange.from(13).localizedName.contains("Ventura"))
+    }
+
+    /// Features Apple introduced in a later release must say so, otherwise the
+    /// tweak silently writes a key the running system ignores.
+    func testVersionGatedTweaksDeclareTheirMinimum() {
+        XCTAssertEqual(TweakCatalog.tweak(id: "stage-manager")?.availability.minimumMajor, 13)
+        XCTAssertEqual(TweakCatalog.tweak(id: "universal-control")?.availability.minimumMajor, 12)
+        XCTAssertEqual(TweakCatalog.tweak(id: "airplay-receiver")?.availability.minimumMajor, 12)
+        XCTAssertEqual(TweakCatalog.tweak(id: "media-analysis")?.availability.minimumMajor, 12)
+        // O Launchpad deixou de existir no macOS 26.
+        XCTAssertEqual(TweakCatalog.tweak(id: "launchpad-animations")?.availability.maximumMajor, 15)
+    }
+
+    func testPresetsDropTweaksTheRunningSystemCannotUse() {
+        let onBigSur = Preset.recommended.tweaks(availableOn: 11).map(\.id)
+        XCTAssertFalse(onBigSur.contains("stage-manager"))
+        XCTAssertFalse(onBigSur.contains("universal-control"))
+
+        let onVentura = Preset.recommended.tweaks(availableOn: 13).map(\.id)
+        XCTAssertTrue(onVentura.contains("stage-manager"))
+    }
+
+    /// Without a version filter the catalog is returned whole, so `list` can
+    /// still show everything that exists.
+    func testPresetsWithoutFilterKeepEverything() {
+        XCTAssertTrue(Preset.recommended.tweaks().map(\.id).contains("stage-manager"))
+    }
+
     func testGroupingCoversEveryTweak() {
         let grouped = TweakCatalog.grouped().flatMap(\.tweaks)
         XCTAssertEqual(grouped.count, TweakCatalog.all.count)

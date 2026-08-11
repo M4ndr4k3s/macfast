@@ -96,14 +96,24 @@ public enum Preset: String, CaseIterable, Sendable {
         }
     }
 
-    public func tweaks(from catalog: [Tweak] = TweakCatalog.all) -> [Tweak] {
+    /// - Parameter availableOn: major macOS version to filter by. Passing it
+    ///   keeps a preset from failing on every tweak the running system does not
+    ///   support; `nil` returns the preset regardless of version.
+    public func tweaks(
+        from catalog: [Tweak] = TweakCatalog.all,
+        availableOn osMajor: Int? = nil
+    ) -> [Tweak] {
+        let supported = osMajor.map { major in
+            catalog.filter { $0.isAvailable(onMajor: major) }
+        } ?? catalog
+
         switch self {
         case .conservative:
-            return catalog.filter { $0.risk == .safe }
+            return supported.filter { $0.risk == .safe }
         case .recommended:
-            return catalog.filter { $0.risk != .advanced }
+            return supported.filter { $0.risk != .advanced }
         case .oclp:
-            return catalog.filter { $0.recommendedForOCLP }
+            return supported.filter { $0.recommendedForOCLP }
         }
     }
 }
@@ -234,6 +244,7 @@ public enum TweakCatalog {
             risk: .safe,
             effect: .restartsDock,
             recommendedForOCLP: true,
+            availability: .upTo(15),
             actions: [
                 write("com.apple.dock", "springboard-show-duration", .double(0.1)),
                 write("com.apple.dock", "springboard-hide-duration", .double(0.1)),
@@ -281,10 +292,11 @@ public enum TweakCatalog {
             id: "stage-manager",
             title: "Desativar Stage Manager",
             summary: "Desliga o gerenciador de palco, que mantém miniaturas ao vivo das janelas.",
-            tradeoff: "Perde o Stage Manager (só existe no Ventura ou mais recente).",
+            tradeoff: "Perde o Stage Manager.",
             category: .interface,
             risk: .safe,
             recommendedForOCLP: true,
+            availability: .from(13),
             actions: [write("com.apple.WindowManager", "GloballyEnabled", .bool(false))]
         ),
         Tweak(
@@ -379,6 +391,7 @@ public enum TweakCatalog {
             risk: .advanced,
             effect: .needsReboot,
             recommendedForOCLP: true,
+            availability: .from(12),
             actions: [launchAgentDisabled("com.apple.mediaanalysisd")]
         ),
         Tweak(
@@ -532,6 +545,7 @@ public enum TweakCatalog {
             risk: .safe,
             effect: .needsLogout,
             recommendedForOCLP: true,
+            availability: .from(12),
             // Apple's own key carries the typo "Reciever"; it must be written
             // exactly like this to take effect.
             actions: [write("com.apple.controlcenter", "AirplayRecieverEnabled", .bool(false))]
@@ -588,6 +602,7 @@ public enum TweakCatalog {
             risk: .safe,
             effect: .needsLogout,
             recommendedForOCLP: true,
+            availability: .from(12),
             actions: [write("com.apple.universalcontrol", "Disable", .bool(true))]
         ),
         Tweak(

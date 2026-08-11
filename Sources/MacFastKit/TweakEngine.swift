@@ -22,17 +22,27 @@ public struct ApplyReport {
 public final class TweakEngine {
     private let runner: CommandRunner
     private let backups: BackupStore
+    private let osMajor: Int
 
     private static let defaultsTool = "/usr/bin/defaults"
 
-    public init(runner: CommandRunner = SystemCommandRunner(), backups: BackupStore = BackupStore()) {
+    public init(
+        runner: CommandRunner = SystemCommandRunner(),
+        backups: BackupStore = BackupStore(),
+        osMajor: Int = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+    ) {
         self.runner = runner
         self.backups = backups
+        self.osMajor = osMajor
     }
 
     // MARK: - Reading state
 
     public func state(of tweak: Tweak) -> TweakState {
+        // Checked before touching the system: a `defaults write` for a key this
+        // release does not know would otherwise look like a success.
+        guard tweak.isAvailable(onMajor: osMajor) else { return .unavailable }
+
         var appliedCount = 0
         var knownCount = 0
 
@@ -43,7 +53,9 @@ public final class TweakEngine {
                 knownCount += 1
             case .notApplied:
                 knownCount += 1
-            case .unknown, .partial:
+            // `actionState` never returns these two, but they keep the switch
+            // exhaustive: an unreadable action simply does not vote.
+            case .unknown, .partial, .unavailable:
                 break
             }
         }
@@ -106,6 +118,11 @@ public final class TweakEngine {
     }
 
     public func apply(_ tweak: Tweak) throws {
+        guard tweak.isAvailable(onMajor: osMajor) else {
+            throw MacFastError.unavailableOnThisOS(
+                title: tweak.title, requirement: tweak.availability.localizedName)
+        }
+
         // Capture the original state once, before the first change. Re-applying
         // must not overwrite a backup with MacFast's own values.
         if !backups.hasBackup(for: tweak.id) {

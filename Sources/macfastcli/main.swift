@@ -28,12 +28,15 @@ func fail(_ message: String) -> Never {
     exit(1)
 }
 
+let osMajor = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+
 func stateLabel(_ state: TweakState) -> String {
     switch state {
     case .applied: return "[x]"
     case .notApplied: return "[ ]"
     case .partial: return "[~]"
     case .unknown: return "[?]"
+    case .unavailable: return "[-]"
     }
 }
 
@@ -42,7 +45,7 @@ func resolveTweaks(_ operands: [String]) -> [Tweak] {
     var resolved: [Tweak] = []
     for operand in operands {
         if let preset = Preset(rawValue: operand) {
-            resolved += preset.tweaks()
+            resolved += preset.tweaks(availableOn: osMajor)
         } else if let tweak = TweakCatalog.tweak(id: operand) {
             resolved.append(tweak)
         } else {
@@ -133,8 +136,11 @@ case "list", nil:
         print("\(group.category.localizedName.uppercased())")
         for tweak in tweaks {
             let star = tweak.recommendedForOCLP ? "★" : " "
+            let versionNote = tweak.availability.isUniversal
+                ? ""
+                : "  [\(tweak.availability.shortName)]"
             print("  \(star) \(tweak.id.padding(toLength: 24, withPad: " ", startingAt: 0)) "
-                + "\(tweak.title)  (\(tweak.risk.localizedName))")
+                + "\(tweak.title)  (\(tweak.risk.localizedName))\(versionNote)")
             print("      \(tweak.summary)")
             print("      abre mão de: \(tweak.tradeoff)")
         }
@@ -152,7 +158,7 @@ case "status":
 case "presets":
     for preset in Preset.allCases {
         print("\(preset.rawValue.padding(toLength: 14, withPad: " ", startingAt: 0)) "
-            + "\(preset.localizedName) — \(preset.tweaks().count) ajustes")
+            + "\(preset.localizedName) — \(preset.tweaks(availableOn: osMajor).count) ajustes")
         print("   \(preset.localizedSummary)")
     }
 
