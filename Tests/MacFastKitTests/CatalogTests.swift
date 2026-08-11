@@ -86,7 +86,7 @@ final class CatalogTests: XCTestCase {
 
     /// A category with no tweaks shows up as an empty section in the sidebar.
     func testEveryCategoryHasAtLeastOneTweak() {
-        for category in Category.allCases {
+        for category in TweakCategory.allCases {
             XCTAssertTrue(TweakCatalog.all.contains { $0.category == category },
                           "categoria \(category.rawValue) está vazia")
         }

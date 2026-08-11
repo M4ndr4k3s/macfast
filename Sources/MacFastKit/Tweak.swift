@@ -160,7 +160,7 @@ public enum Risk: String, Codable, Sendable, CaseIterable {
     }
 }
 
-public enum Category: String, Codable, Sendable, CaseIterable {
+public enum TweakCategory: String, Codable, Sendable, CaseIterable {
     case interface
     case animations
     case indexing
@@ -214,7 +214,7 @@ public struct Tweak: Identifiable, Equatable, Codable, Sendable {
     /// What the user loses by enabling this. Never empty — every tweak trades
     /// something away, and the UI shows this next to the switch.
     public let tradeoff: String
-    public let category: Category
+    public let category: TweakCategory
     public let risk: Risk
     public let effect: ApplyEffect
     /// Tweaks that pay off the most on Macs running via OpenCore Legacy Patcher
@@ -235,7 +235,7 @@ public struct Tweak: Identifiable, Equatable, Codable, Sendable {
         title: String,
         summary: String,
         tradeoff: String,
-        category: Category,
+        category: TweakCategory,
         risk: Risk,
         effect: ApplyEffect = .immediate,
         recommendedForOCLP: Bool = false,

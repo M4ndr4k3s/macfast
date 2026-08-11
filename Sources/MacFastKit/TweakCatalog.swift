@@ -121,10 +121,10 @@ public enum Preset: String, CaseIterable, Sendable {
 /// A category and the tweaks it holds. A named type rather than a tuple so it
 /// can be identified in SwiftUI lists.
 public struct TweakGroup: Identifiable, Equatable, Sendable {
-    public let category: Category
+    public let category: TweakCategory
     public let tweaks: [Tweak]
 
-    public var id: Category { category }
+    public var id: TweakCategory { category }
 }
 
 public enum TweakCatalog {
@@ -134,7 +134,7 @@ public enum TweakCatalog {
     }
 
     public static func grouped() -> [TweakGroup] {
-        Category.allCases.compactMap { category in
+        TweakCategory.allCases.compactMap { category in
             let matches = all.filter { $0.category == category }
             return matches.isEmpty ? nil : TweakGroup(category: category, tweaks: matches)
         }

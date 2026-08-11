@@ -131,6 +131,15 @@ swift build
 swift test
 ```
 
+O motor, o CLI e os testes só usam Foundation, então compilam também em Linux — o
+alvo da interface só é declarado quando o pacote é montado a partir do macOS. É por
+isso que `swift test` funciona nos dois lugares.
+
+A interface, essa só compila num macOS de verdade: SwiftUI e AppKit vêm do SDK da
+Apple. O CI (`.github/workflows/ci.yml`) cobre os dois casos — o núcleo em Linux, e o
+app completo num runner macOS, que ainda monta o `MacFast.app` e publica como artefato
+do build.
+
 O motor (`MacFastKit`) não depende de interface, então os testes rodam sem tocar no sistema:
 usam um executor falso que apenas registra os comandos. Os testes também protegem o catálogo —
 todo ajuste precisa declarar do que se abre mão, ter reversão e saber ler o próprio estado,

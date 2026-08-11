@@ -90,7 +90,7 @@ func printUsage() {
     `apply` e `revert` funcionam como sinônimos de `disable` e `enable`.
 
     CATEGORIAS
-      \(Category.allCases.map(\.rawValue).joined(separator: ", "))
+      \(TweakCategory.allCases.map(\.rawValue).joined(separator: ", "))
 
     OPÇÕES
       --dry-run   imprime os comandos sem executar nada
@@ -116,10 +116,10 @@ case "list", nil:
         print("OpenCore Legacy Patcher detectado — ajustes marcados com ★ rendem mais aqui.\n")
     }
     // Um operando opcional restringe a uma categoria: `macfast list privacy`.
-    let wantedCategory = operands.first.flatMap(Category.init(rawValue:))
+    let wantedCategory = operands.first.flatMap(TweakCategory.init(rawValue:))
     if let first = operands.first, wantedCategory == nil {
         fail("categoria desconhecida: \(first)\n"
-            + "válidas: " + Category.allCases.map(\.rawValue).joined(separator: ", "))
+            + "válidas: " + TweakCategory.allCases.map(\.rawValue).joined(separator: ", "))
     }
 
     for group in TweakCatalog.grouped() {
@@ -141,7 +141,7 @@ case "list", nil:
     }
 
 case "status":
-    let statusCategory = operands.first.flatMap(Category.init(rawValue:))
+    let statusCategory = operands.first.flatMap(TweakCategory.init(rawValue:))
     for tweak in TweakCatalog.all where statusCategory == nil || tweak.category == statusCategory {
         let state = engine.state(of: tweak)
         print("\(stateLabel(state)) \(tweak.id.padding(toLength: 24, withPad: " ", startingAt: 0)) "

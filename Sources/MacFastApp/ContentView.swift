@@ -4,12 +4,12 @@ import MacFastKit
 
 struct ContentView: View {
     @ObservedObject var model: AppModel
-    @State private var selection: Category?
+    @State private var selection: TweakCategory?
 
     var body: some View {
         NavigationView {
             sidebar
-            detail
+            detailPane
         }
         .frame(minWidth: 900, minHeight: 560)
         .onAppear { model.load() }
@@ -36,7 +36,7 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private var detail: some View {
+    private var detailPane: some View {
         if let selection {
             detail(for: selection)
         } else {
@@ -44,12 +44,12 @@ struct ContentView: View {
         }
     }
 
-    private func detail(for category: Category) -> some View {
+    private func detail(for category: TweakCategory) -> some View {
         let tweaks = model.groups.first { $0.category == category }?.tweaks ?? []
         return TweakListView(model: model, category: category, tweaks: tweaks)
     }
 
-    private func icon(for category: Category) -> String {
+    private func icon(for category: TweakCategory) -> String {
         switch category {
         case .interface: return "macwindow"
         case .animations: return "wand.and.rays"
@@ -135,7 +135,7 @@ struct OverviewView: View {
 
 struct TweakListView: View {
     @ObservedObject var model: AppModel
-    let category: Category
+    let category: TweakCategory
     let tweaks: [Tweak]
 
     var body: some View {
