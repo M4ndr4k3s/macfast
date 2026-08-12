@@ -50,6 +50,24 @@ final class CatalogTests: XCTestCase {
         }
     }
 
+    /// Vários probes terminam em `|| echo <algo>` para o caso de a chave não
+    /// existir. Se esse valor for igual ao esperado para "aplicado", um Mac que
+    /// nunca foi tocado aparece como já otimizado — e o interruptor mente.
+    func testProbeFallbackNeverLooksLikeApplied() {
+        for tweak in TweakCatalog.all {
+            for action in tweak.actions {
+                guard case .command(_, _, let probe, let appliedOutput) = action,
+                      let probe, let appliedOutput else { continue }
+                let script = probe.joined(separator: " ")
+                guard let marker = script.range(of: "|| echo ", options: .backwards) else { continue }
+                let fallback = script[marker.upperBound...]
+                    .trimmingCharacters(in: CharacterSet(charactersIn: " '\""))
+                XCTAssertNotEqual(fallback, appliedOutput,
+                                  "\(tweak.id): chave ausente é lida como aplicada")
+            }
+        }
+    }
+
     func testCatalogAvoidsSecurityWeakeningCommands() {
         let forbidden = ["csrutil", "spctl", "xprotect", "fdesetup", "nvram"]
         for tweak in TweakCatalog.all {
@@ -72,6 +90,17 @@ final class CatalogTests: XCTestCase {
             for tweak in tweaks {
                 XCTAssertTrue(ids.contains(tweak.id), "preset traz ajuste fora do catálogo")
             }
+        }
+    }
+
+    /// Ajustes que dependem de gosto ou de idioma não podem entrar num preset:
+    /// quem clica "Recomendado" não espera perder a acentuação por segurar a
+    /// tecla, que em português é como muita gente escreve.
+    func testPresetsNeverIncludeOptOutOnlyTweaks() {
+        for preset in Preset.allCases {
+            let ids = preset.tweaks().map(\.id)
+            XCTAssertFalse(ids.contains("press-and-hold"),
+                           "preset \(preset.rawValue) desativa o menu de acentos sozinho")
         }
     }
 

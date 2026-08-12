@@ -212,15 +212,19 @@ public final class TweakEngine {
                     // The original type is not recorded, so restore as a string
                     // for text and let numeric-looking values go back as numbers.
                     arguments += ["write", domain, key] + Self.restoreArguments(for: original)
+                    // A failure here must propagate: the tweak is still applied
+                    // and the recorded original is the only copy of what the
+                    // user had. Swallowing it would drop the backup below and
+                    // make the change permanent.
+                    try execute(arguments)
                 } else {
                     // Either there was no backup at all, or the key was absent
                     // before. Both revert to "not set", which is what macOS
-                    // itself falls back to.
+                    // itself falls back to. Deleting a key that is already gone
+                    // exits non-zero, and that is the state we wanted anyway.
                     arguments += ["delete", domain, key]
+                    _ = try? runner.runAutoElevating(arguments)
                 }
-                // Deleting a key that is already gone exits non-zero; that is
-                // still the state we wanted, so it is not an error.
-                _ = try? runner.runAutoElevating(arguments)
 
             case .command(_, let revert, _, _):
                 try execute(revert)

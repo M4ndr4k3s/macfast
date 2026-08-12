@@ -175,6 +175,9 @@ struct TweakRow: View {
                         if tweak.effect != .immediate {
                             Badge(text: tweak.effect.localizedName, color: .secondary)
                         }
+                        if tweak.manualOnly {
+                            Badge(text: "Só manual", color: .purple)
+                        }
                         if !tweak.availability.isUniversal {
                             Badge(text: tweak.availability.shortName,
                                   color: state == .unavailable ? .secondary : .blue)

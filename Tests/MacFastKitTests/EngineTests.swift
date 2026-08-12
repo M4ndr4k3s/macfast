@@ -311,6 +311,35 @@ final class EngineTests: XCTestCase {
         XCTAssertTrue(message!.contains("Ajuste que falha"))
     }
 
+    // MARK: - Falhas ao reverter
+
+    /// Reverter é a promessa central do app. Se o `defaults write` falhar (sem
+    /// permissão, domínio protegido) e mesmo assim o backup for apagado, o
+    /// ajuste continua aplicado e o valor original some para sempre.
+    func testFailedRevertKeepsTheBackup() throws {
+        runner.stub(["/usr/bin/defaults", "read", "com.example.app", "Flag"], output: "7")
+        try engine.apply(sample)
+
+        runner.stub(["/usr/bin/defaults", "write", "com.example.app", "Flag", "-int", "7"],
+                    output: "", status: 1)
+        XCTAssertThrowsError(try engine.revert(sample))
+
+        let reloaded = TweakEngine(runner: FakeRunner(),
+                                   backups: BackupStore(fileURL: backupURL))
+        XCTAssertEqual(reloaded.trackedTweakIds, ["test-tweak"],
+                       "o backup não pode sumir quando a restauração falha")
+    }
+
+    /// Apagar uma chave que já não existe sai com código de erro, mas o estado
+    /// desejado foi atingido — isso não é falha.
+    func testRevertOfAnAbsentKeySucceeds() throws {
+        try engine.apply(sample)
+        runner.stub(["/usr/bin/defaults", "delete", "com.example.app", "Flag"],
+                    output: "", status: 1)
+        XCTAssertNoThrow(try engine.revert(sample))
+        XCTAssertTrue(engine.trackedTweakIds.isEmpty)
+    }
+
     // MARK: - Quoting
 
     func testShellQuotingHandlesEmbeddedQuotes() {

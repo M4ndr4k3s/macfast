@@ -222,6 +222,10 @@ public struct Tweak: Identifiable, Equatable, Codable, Sendable {
     public let recommendedForOCLP: Bool
     /// Releases where this tweak actually has an effect.
     public let availability: OSRange
+    /// Never applied by a preset — only by explicit choice. For changes that
+    /// come down to personal habit or keyboard language rather than to how
+    /// risky they are.
+    public let manualOnly: Bool
     public let actions: [Action]
 
     public var requiresRoot: Bool { actions.contains { $0.requiresRoot } }
@@ -240,9 +244,11 @@ public struct Tweak: Identifiable, Equatable, Codable, Sendable {
         effect: ApplyEffect = .immediate,
         recommendedForOCLP: Bool = false,
         availability: OSRange = .any,
+        manualOnly: Bool = false,
         actions: [Action]
     ) {
         self.availability = availability
+        self.manualOnly = manualOnly
         self.id = id
         self.title = title
         self.summary = summary

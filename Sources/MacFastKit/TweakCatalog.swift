@@ -103,9 +103,12 @@ public enum Preset: String, CaseIterable, Sendable {
         from catalog: [Tweak] = TweakCatalog.all,
         availableOn osMajor: Int? = nil
     ) -> [Tweak] {
+        // Ajustes marcados como manuais nunca entram num preset, por mais
+        // seguros que sejam: a escolha é de gosto, não de risco.
+        let offered = catalog.filter { !$0.manualOnly }
         let supported = osMajor.map { major in
-            catalog.filter { $0.isAvailable(onMajor: major) }
-        } ?? catalog
+            offered.filter { $0.isAvailable(onMajor: major) }
+        } ?? offered
 
         switch self {
         case .conservative:
@@ -497,8 +500,12 @@ public enum TweakCatalog {
             actions: [.command(
                 apply: ["/usr/bin/sudo", "/usr/bin/tmutil", "disable"],
                 revert: ["/usr/bin/sudo", "/usr/bin/tmutil", "enable"],
+                // Num Mac que nunca configurou o Time Machine a chave não
+                // existe — o que não é o mesmo que o backup automático estar
+                // desligado por nós.
                 probe: ["/bin/sh", "-c",
-                        "defaults read /Library/Preferences/com.apple.TimeMachine AutoBackup 2>/dev/null || echo 0"],
+                        "defaults read /Library/Preferences/com.apple.TimeMachine AutoBackup"
+                            + " 2>/dev/null || echo ausente"],
                 appliedOutput: "0"
             )]
         ),
@@ -910,6 +917,7 @@ public enum TweakCatalog {
             category: .trackpad,
             risk: .moderate,
             effect: .needsLogout,
+            manualOnly: true,
             actions: [write("NSGlobalDomain", "ApplePressAndHoldEnabled", .bool(false))]
         ),
     ]
